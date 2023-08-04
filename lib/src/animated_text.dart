@@ -150,12 +150,56 @@ class _AnimatedTextKitState extends State<AnimatedTextKit>
 
   @override
   void initState() {
+    AnimatedTextStreamHolderSingleton().stopGeneratingTextStream =
+        StreamController();
+
+    AnimatedTextStreamHolderSingleton()
+        .streamPersonalInfoUpdateStatus()
+        ?.listen((event) {
+      if (event) {
+        _displayFullText();
+      }
+    });
+
     super.initState();
     _initAnimation();
   }
 
+  ///Displays full text if `event` would be true
+  /// You can add event from your repository
+  /// by using the `AnimatedTextStreamHolderSingleton`'s
+  /// `addFlagToStream` function
+  void _displayFullText() {
+    if (_isCurrentlyPausing) {
+      if (widget.stopPauseOnTap) {
+        _timer?.cancel();
+        _nextAnimation();
+      }
+    } else {
+      final left =
+          (_currentAnimatedText.remaining ?? _currentAnimatedText.duration)
+              .inMilliseconds;
+
+      _controller.stop();
+
+      _setPause();
+
+      assert(null == _timer || !_timer!.isActive);
+      _timer = Timer(
+        Duration(
+          milliseconds: max(
+            widget.pause.inMilliseconds,
+            left,
+          ),
+        ),
+        _nextAnimation,
+      );
+    }
+  }
+
   @override
   void dispose() {
+    AnimatedTextStreamHolderSingleton().stopGeneratingTextStream?.close();
     _timer?.cancel();
     _controller.dispose();
     super.dispose();
@@ -274,5 +318,30 @@ class _AnimatedTextKitState extends State<AnimatedTextKit>
     }
 
     widget.onTap?.call();
+  }
+}
+
+///Holds a static stream
+/// You can listen and add a flag with this stream
+/// To displaying full text as a Stop generating feature
+
+class AnimatedTextStreamHolderSingleton {
+  AnimatedTextStreamHolderSingleton._();
+  static final AnimatedTextStreamHolderSingleton _instance =
+      AnimatedTextStreamHolderSingleton._();
+
+  factory AnimatedTextStreamHolderSingleton() => _instance;
+
+  ///Stream controller for flag
+  StreamController<bool>? stopGeneratingTextStream;
+
+  ///Returns a stream to listening flag's stream controller
+  Stream<bool>? streamPersonalInfoUpdateStatus() {
+    return stopGeneratingTextStream?.stream;
+  }
+
+  ///adds a flag to listen after
+  void addFlagToStream() {
+    stopGeneratingTextStream?.add(true);
   }
 }
